@@ -93,6 +93,18 @@ function ProjectMarkers() {
 
 function RobotController({ robotRef, enabled = true }) {
   const keys = useKeyboard();
+  const moveAudioRef = useRef(null);
+
+  // setup audio once
+  useEffect(() => {
+    moveAudioRef.current = new Audio("/sounds/moving.mp3");
+    moveAudioRef.current.loop = true;
+    moveAudioRef.current.volume = 0.7;
+
+    return () => {
+      moveAudioRef.current?.pause();
+    };
+  }, []);
 
   useFrame((_, delta) => {
     if (!robotRef.current || !enabled) return;
@@ -100,12 +112,16 @@ function RobotController({ robotRef, enabled = true }) {
     const speed = 5;
     const rotateSpeed = 2.5;
 
+    let isMoving = false;
+
     if (keys["a"] || keys["arrowleft"]) {
       robotRef.current.rotation.y += rotateSpeed * delta;
+      isMoving = true;
     }
 
     if (keys["d"] || keys["arrowright"]) {
       robotRef.current.rotation.y -= rotateSpeed * delta;
+      isMoving = true;
     }
 
     const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(
@@ -114,10 +130,27 @@ function RobotController({ robotRef, enabled = true }) {
 
     if (keys["w"] || keys["arrowup"]) {
       robotRef.current.position.addScaledVector(forward, speed * delta);
+      isMoving = true;
     }
 
     if (keys["s"] || keys["arrowdown"]) {
       robotRef.current.position.addScaledVector(forward, -speed * delta);
+      isMoving = true;
+    }
+
+    const audio = moveAudioRef.current;
+
+    if (audio) {
+      if (isMoving) {
+        if (audio.paused) {
+          audio.currentTime = 0;
+          audio.play();
+        }
+      } else {
+        if (!audio.paused) {
+          audio.pause();
+        }
+      }
     }
 
     robotRef.current.position.x = THREE.MathUtils.clamp(
@@ -406,6 +439,7 @@ function Scene({
         project={selectedProject ? null : nearbyProject}
         onClick={() => {
           if (nearbyProject) {
+            playSound("/sounds/click.wav", 0.7);
             setSelectedProject(nearbyProject);
             setNearbyProject(null);
           }
@@ -413,6 +447,12 @@ function Scene({
       />
     </>
   );
+}
+
+function playSound(path, volume = 1) {
+  const audio = new Audio(path);
+  audio.volume = volume;
+  audio.play();
 }
 
 function SplashRobotModel() {
@@ -458,6 +498,42 @@ export default function App() {
   const [nearbyProject, setNearbyProject] = useState(null);
   const [selectedProject, setSelectedProject] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
+  const bgmRef = useRef(null);
+  const previewAudioRef = useRef(null);
+  const lastPreviewIdRef = useRef(null);
+
+  useEffect(() => {
+    const currentId = nearbyProject?.id ?? null;
+
+    if (currentId && currentId !== lastPreviewIdRef.current) {
+      const audio = previewAudioRef.current;
+      if (audio) {
+        audio.currentTime = 0;
+        audio.play();
+      }
+    }
+ 
+    lastPreviewIdRef.current = currentId;
+  }, [nearbyProject]);
+
+  useEffect(() => {
+    bgmRef.current = new Audio("/sounds/steampipe.mp3");
+    bgmRef.current.loop = true;
+    bgmRef.current.volume = 0.3;
+
+    return () => {
+      bgmRef.current?.pause();
+    };
+  }, []);
+
+  useEffect(() => {
+    previewAudioRef.current = new Audio("/sounds/pop.mp3");
+    previewAudioRef.current.volume = 0.7;
+
+    return () => {
+      previewAudioRef.current?.pause();
+    };
+  }, []);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -515,7 +591,11 @@ export default function App() {
             </p>
 
             <button
-              onClick={() => setShowSplash(false)}
+              onClick={() => {
+                setShowSplash(false);
+                playSound("/sounds/click.wav", 0.7);
+                bgmRef.current?.play();
+              }}
               style={{
                 padding: "12px 22px",
                 border: "none",
@@ -660,7 +740,10 @@ export default function App() {
               }}
             >
               <button
-                onClick={() => setSelectedProject(null)}
+                onClick={() => {
+                  playSound("/sounds/click.wav", 0.7);
+                  setSelectedProject(null);
+                }}
                 style={{
                   alignSelf: "flex-end",
                   width: "42px",
