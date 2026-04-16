@@ -1,9 +1,10 @@
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrthographicCamera, Text, Float, Html, useGLTF } from "@react-three/drei";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import * as THREE from "three";
 import DeliveryRobot from "./components/DeliveryRobot";
 import Building from "./components/building";
+import DialogBox from "./components/DialogBox";
 
 function useKeyboard() {
   const [keys, setKeys] = useState({});
@@ -38,7 +39,10 @@ const checkpointSequence = [
     shortObjective: "Load fresh grocery crates from the supermarket dock.",
     storyDetails:
       "The day starts gently at the supermarket. Staff hand over fresh produce and pantry boxes for the city route.",
-  }, 
+    contentTitle: "Last Mile Delivery",
+    contentBody:
+      'Last mile delivery accounts for 13–75% of supply chain costs and 40% of e‑commerce emissions!\n\nDelivery robots like Stella have the potential to lower these costs while reducing congestion.',
+  },
   {
     id: "office",
     step: 2,
@@ -50,6 +54,9 @@ const checkpointSequence = [
     shortObjective: "Deliver the first grocery batch to the office reception.",
     storyDetails:
       "Office teams receive their lunch and snack restock. The route stays calm and steady as the city wakes up.",
+    contentTitle: "Why Delivery Robots?",
+    contentBody:
+      "Companies purchase delivery robots like Stella in hopes of enabling:\n\n• 24/7 delivery availability\n• Reduced reliance on expensive labor that may experience shortages",
   },
   {
     id: "burger",
@@ -62,6 +69,9 @@ const checkpointSequence = [
     shortObjective: "Collect chilled ingredients from the burger kitchen.",
     storyDetails:
       "The burger kitchen adds specialty items for the second half of the route, including chilled and boxed essentials.",
+    contentTitle: "Robots as Coworkers",
+    contentBody:
+      "The employees at Burdell's Burgers had to receive training with Stella. Some of them found the cute addition to the team helpful while others found the new processes to be annoying and were afraid that soon, robots like Stella won't just be \"coworkers\" but \"replacements\".",
   },
   {
     id: "police",
@@ -74,6 +84,9 @@ const checkpointSequence = [
     shortObjective: "Drop a support order at the police station entrance.",
     storyDetails:
       "The station receives a scheduled support delivery for officers on shift, keeping the route helpful and community-focused.",
+    contentTitle: "Sharing the Sidewalk",
+    contentBody:
+      "Delivery robots like Stella often use sidewalks, potentially increasing congestion on already narrow paths. Delivery robots have a duty to share the road so to be warmly welcomed by all city-goers!\n\nSome people also worry if Stella could be hacked, or cause collisions.",
   },
   {
     id: "hospital",
@@ -86,6 +99,9 @@ const checkpointSequence = [
     shortObjective: "Complete the final delivery at the hospital loading bay.",
     storyDetails:
       "The final stop is a quiet care drop at the hospital. Supplies are handed off, and the route closes on a calm note.",
+    contentTitle: "Contactless & Consistent",
+    contentBody:
+      "Stella provides customers with a consistent contactless delivery experience (when she doesn't get lost!). Some customers are saddened by the lack of human interaction, but others are happy to receive the robot delivery.\n\nEither way, her contactless service can help prevent the spread of diseases.",
   },
 ];
 
@@ -139,7 +155,6 @@ function RobotController({ robotRef, enabled = true, onPlayerMoved }) {
   const moveAudioRef = useRef(null);
   const hasReportedMovementRef = useRef(false);
 
-  // setup audio once
   useEffect(() => {
     moveAudioRef.current = new Audio("/sounds/moving.mp3");
     moveAudioRef.current.loop = true;
@@ -151,7 +166,12 @@ function RobotController({ robotRef, enabled = true, onPlayerMoved }) {
   }, []);
 
   useFrame((_, delta) => {
-    if (!robotRef.current || !enabled) return;
+    if (!robotRef.current || !enabled) {
+      if (moveAudioRef.current && !moveAudioRef.current.paused) {
+        moveAudioRef.current.pause();
+      }
+      return;
+    }
 
     const speed = 5;
     const rotateSpeed = 2.5;
@@ -273,13 +293,7 @@ function ProjectZoneDetector({
   activationEnabled,
 }) {
   useFrame(() => {
-    if (!robotRef.current) return;
-
-    if (!activationEnabled) {
-      return;
-    }
-
-    if (!activeCheckpoint) {
+    if (!robotRef.current || !activationEnabled || !activeCheckpoint) {
       setNearbyProject(null);
       return;
     }
@@ -288,125 +302,23 @@ function ProjectZoneDetector({
     const activePos = new THREE.Vector3(...activeCheckpoint.position);
     const activeDistance = robotPos.distanceTo(activePos);
 
-    setNearbyProject((prev) => {
-      if (activeDistance < 6) {
+    // --- ADJUST RADIUS HERE ---
+    const detectionRadius = 2;
+
+    setNearbyProject(prev => {
+      if (activeDistance < detectionRadius) {
         if (prev?.id === activeCheckpoint.id) return prev;
         return activeCheckpoint;
       }
-
-      if (prev === null) return prev;
       return null;
     });
 
-    if (activeDistance < 5.5) {
+    if (activeDistance < (detectionRadius - 0.5)) {
       onCheckpointReached(activeCheckpoint);
     }
   });
 
   return null;
-}
-
-function ProjectPreview({ project, isActiveCheckpoint = false }) {
-  if (!project) return null;
-
-  const [x, y, z] = project.position;
-  const accent = project.accent || "#ffffff";
-
-  return (
-    <>
-      <Float speed={2} rotationIntensity={0.08} floatIntensity={0.45}>
-        <group position={[x, y + 4.2, z]}>
-          <Html center distanceFactor={10} transform>
-            <div
-              style={{
-                width: "200px",
-                borderRadius: "22px",
-                padding: "16px",
-                background: "rgba(18,18,22,0.92)",
-                color: "white",
-                border: `1px solid ${accent}`,
-                boxShadow: `0 18px 50px rgba(0,0,0,0.28), 0 0 24px ${accent}33`,
-                backdropFilter: "blur(10px)",
-                fontFamily: "Arial, sans-serif",
-                userSelect: "none",
-              }}
-            >
-              <div
-                style={{
-                  display: "inline-block",
-                  padding: "6px 10px",
-                  borderRadius: "999px",
-                  background: accent,
-                  color: "white",
-                  fontSize: "0.72rem",
-                  fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  marginBottom: "12px",
-                }}
-              >
-                {isActiveCheckpoint ? "ACTIVE CHECKPOINT" : "IN RANGE"}
-              </div>
-
-              <div
-                style={{
-                  fontSize: "1.05rem",
-                  fontWeight: 700,
-                  lineHeight: 1.2,
-                  marginBottom: "6px",
-                }}
-              >
-                {project.title}
-              </div>
-
-              <div
-                style={{
-                  fontSize: "0.84rem",
-                  color: "#cfcfd8",
-                  marginBottom: "12px",
-                }}
-              >
-                {project.subtitle || "Interactive project preview"}
-              </div>
-
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "center",
-                  fontSize: "0.8rem",
-                  color: "#b9b9c3",
-                }}
-              >
-                <span style={{ color: accent, fontWeight: 700 }}>
-                  {project.storyAction}
-                </span>
-              </div>
-            </div>
-          </Html>
-        </group>
-      </Float>
-
-      <mesh position={[x, y + 0.06, z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[1.2, 1.65, 48]} />
-        <meshStandardMaterial
-          color={accent}
-          emissive={accent}
-          emissiveIntensity={0.35}
-          transparent
-          opacity={0.9}
-        />
-      </mesh>
-
-      <mesh position={[x, y + 0.07, z]} rotation={[-Math.PI / 2, 0, 0]}>
-        <circleGeometry args={[0.32, 32]} />
-        <meshStandardMaterial
-          color="#fff"
-          emissive="#fff"
-          emissiveIntensity={0.25}
-        />
-      </mesh>
-    </>
-  );
 }
 
 function Scene({
@@ -417,6 +329,7 @@ function Scene({
   controlsEnabled,
   activationEnabled,
   onPlayerMoved,
+  activeCheckpointIndex
 }) {
   const robotRef = useRef();
 
@@ -444,7 +357,7 @@ function Scene({
 
       <Floor />
       <RoutePath />
-      <ProjectMarkers />
+      <ProjectMarkers activeIndex={activeCheckpointIndex} />
       <Markers />
 
       <Building path="/models/road.glb" position={[15, 0, 15]} scale={1.5} />
@@ -461,8 +374,8 @@ function Scene({
       <Building path="/models/road.glb" position={[-40, 0, 15]} scale={1.5} />
       <Building path="/models/road.glb" position={[-45, 0, 15]} scale={1.5} />
       <Building path="/models/road.glb" position={[-50, 0, 15]} scale={1.5} />
-      <Building path="/models/road.glb" position={[-55, 0, 15]} scale={1.5} />
 
+      {/* Desaturated green tiles for contrast with the strobing green highlight */}
       <Building path="/models/green.glb" position={[10, 0, 0.5]} scale={3} />
       <Building path="/models/green.glb" position={[0, 0, 0.5]} scale={3} />
       <Building path="/models/green.glb" position={[-10, 0, 0.5]} scale={3} />
@@ -509,11 +422,6 @@ function Scene({
         activeCheckpoint={activeCheckpoint}
         onCheckpointReached={onCheckpointReached}
         activationEnabled={activationEnabled}
-      />
-
-      <ProjectPreview
-        project={nearbyProject}
-        isActiveCheckpoint={nearbyProject?.id === activeCheckpoint?.id}
       />
     </>
   );
@@ -564,6 +472,212 @@ function SplashRobotModel() {
   );
 }
 
+// ─── Checkpoint content modal ─────────────────────────────────────────────────
+function CheckpointModal({ checkpoint, onContinue, visible }) {
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        onContinue?.();
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [visible, onContinue]);
+
+  if (!visible || !checkpoint) return null;
+
+  const accent = checkpoint.accent || "#7ec601";
+
+  return (
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      background: "rgba(0,0,0,0.55)",
+      zIndex: 60,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontFamily: "sans-serif",
+    }}
+      onClick={onContinue}
+    >
+      <div style={{
+        width: "min(520px, calc(100vw - 48px))",
+        background: "rgba(10,14,20,0.97)",
+        border: `2px solid ${accent}`,
+        borderRadius: "20px",
+        padding: "54px",
+        color: "white",
+        boxShadow: `0 0 60px ${accent}44, 0 24px 60px rgba(0,0,0,0.6)`,
+        backdropFilter: "blur(12px)",
+      }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{
+          display: "inline-block",
+          padding: "5px 12px",
+          borderRadius: "999px",
+          background: accent,
+          color: "#0a0e14",
+          fontSize: "0.7rem",
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          marginBottom: "32px",
+        }}>
+          STOP {checkpoint.step} — {checkpoint.title.toUpperCase()}
+        </div>
+
+        <h2 style={{ margin: "0 0 16px", fontSize: "1.4rem", lineHeight: 1.25 }}>
+          {checkpoint.contentTitle}
+        </h2>
+
+        <p style={{
+          margin: "0 0 20px",
+          color: "#d0d8ee",
+          lineHeight: 1.75,
+          fontSize: "0.97rem",
+          whiteSpace: "pre-wrap",
+        }}>
+          {checkpoint.contentBody}
+        </p>
+
+        <button
+          onClick={onContinue}
+          style={{
+            marginTop: 18,
+            padding: "11px 24px",
+            border: `1.5px solid ${accent}`,
+            borderRadius: "999px",
+            background: "transparent",
+            color: accent,
+            cursor: "pointer",
+            fontSize: "0.88rem",
+            fontWeight: 700,
+            letterSpacing: "0.07em",
+            fontFamily: "inherit",
+            transition: "background 0.2s, color 0.2s",
+          }}
+          onMouseEnter={(e) => { e.target.style.background = accent; e.target.style.color = "#0a0e14"; }}
+          onMouseLeave={(e) => { e.target.style.background = "transparent"; e.target.style.color = accent; }}
+        >
+          Press space to continue the journey!
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Route Complete Modal ──────────────────────────────────────────────────────
+function RouteCompleteModal({ visible, onClose }) {
+  useEffect(() => {
+    if (!visible) return;
+    const handler = (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        onClose?.(); // Call the close function instead of reloading
+      }
+    };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [visible, onClose]);
+
+  if (!visible) return null;
+
+  return (
+    <div style={{
+      position: "absolute",
+      inset: 0,
+      background: "rgba(0,0,0,0.6)",
+      zIndex: 65,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      fontFamily: "sans-serif",
+    }}>
+      <div style={{
+        width: "min(480px, calc(100vw - 48px))",
+        background: "rgba(10,14,20,0.97)",
+        border: "2px solid #7ec601",
+        borderRadius: "20px",
+        padding: "36px 36px",
+        color: "white",
+        boxShadow: "0 0 80px #7ec60144, 0 24px 60px rgba(0,0,0,0.6)",
+        textAlign: "center",
+      }}>
+        <div style={{ fontSize: "3rem", marginBottom: "12px" }}>🎉</div>
+        <div style={{
+          display: "inline-block",
+          padding: "5px 14px",
+          borderRadius: "999px",
+          background: "#7ec601",
+          color: "#0a0e14",
+          fontSize: "0.7rem",
+          fontWeight: 700,
+          letterSpacing: "0.1em",
+          marginBottom: "16px",
+        }}>ROUTE COMPLETE</div>
+
+        <h2 style={{ margin: "0 0 14px", fontSize: "1.6rem" }}>You did it, Stella!</h2>
+
+        <p style={{ color: "#c8d8ee", lineHeight: 1.7, margin: "0 0 10px" }}>
+          All deliveries are done. Stay in free-drive mode and keep exploring the city at your own pace.
+        </p>
+
+        <button
+          onClick={onClose}
+          style={{
+            marginTop: 24,
+            padding: "11px 24px",
+            border: `1.5px solid #7ec601`,
+            borderRadius: "999px",
+            background: "transparent",
+            color: "#7ec601",
+            cursor: "pointer",
+            fontSize: "0.88rem",
+            fontWeight: 700,
+            letterSpacing: "0.07em",
+            fontFamily: "inherit",
+            transition: "all 0.2s",
+          }}
+          onMouseEnter={(e) => {
+            e.target.style.background = "#7ec601";
+            e.target.style.color = "#0a0e14";
+          }}
+          onMouseLeave={(e) => {
+            e.target.style.background = "transparent";
+            e.target.style.color = "#7ec601";
+          }}
+        >
+          Press space to free-drive!
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dialog sequence definition ───────────────────────────────────────────────
+// Each entry: { text, waitForMove? }
+// After checkpoint N is completed, show dialogAfterCheckpoint[N]
+const INTRO_DIALOG_SEQUENCE = [
+  "Welcome to Delivery World, Stella! You're the new delivery robot in town. Let's complete our first delivery!",
+  "Use WASD to move around. Head to the supermarket to pick up some groceries!",
+];
+
+const POST_CHECKPOINT_DIALOGS = [
+  // after checkpoint 0 (supermarket) — index 0
+  "Let's drop off the order to the Office!",
+  // after checkpoint 1 (office)
+  "Awesome. Let's pick up our next order!",
+  // after checkpoint 2 (burger)
+  "Great work. Let's deliver the food! Be careful how you share the road...",
+  // after checkpoint 3 (police)
+  "One last delivery!",
+  // after checkpoint 4 (hospital) — game won; route complete modal handles it
+  null,
+];
+
 export default function App() {
   const [nearbyProject, setNearbyProject] = useState(null);
   const [showSplash, setShowSplash] = useState(true);
@@ -574,56 +688,73 @@ export default function App() {
   const [activeCheckpointIndex, setActiveCheckpointIndex] = useState(0);
   const [completedCheckpointCount, setCompletedCheckpointCount] = useState(0);
   const [gameWon, setGameWon] = useState(false);
-  const [checkpointEvent, setCheckpointEvent] = useState(null);
-  const [storyLog, setStoryLog] = useState([
-    "Route briefing: Start at the supermarket and follow the highlighted road through all five city stops.",
-  ]);
+
+  // Dialog state
+  const [dialogVisible, setDialogVisible] = useState(false);
+  const [dialogText, setDialogText] = useState("");
+  const [dialogQueue, setDialogQueue] = useState([]);
+
+  // Checkpoint content modal state
+  const [contentModalCheckpoint, setContentModalCheckpoint] = useState(null);
+  const [contentModalVisible, setContentModalVisible] = useState(false);
+
   const bgmRef = useRef(null);
   const bgmFadeIntervalRef = useRef(null);
-  const previewAudioRef = useRef(null);
-  const lastPreviewIdRef = useRef(null);
   const introVideoRef = useRef(null);
   const activatedCheckpointIdsRef = useRef(new Set());
   const lastCheckpointTriggerAtRef = useRef(0);
+  // Track whether controls should be gated by dialog
+  const [controlsFrozen, setControlsFrozen] = useState(false);
 
   const activeCheckpoint = checkpointSequence[activeCheckpointIndex] ?? null;
   const gameplayReady =
     !showSplash && !showIntroVideo && !isVideoEnding && !isSceneFadingIn;
-  const checkpointActivationEnabled = gameplayReady && hasPlayerMoved;
+  const checkpointActivationEnabled = gameplayReady && hasPlayerMoved && !contentModalVisible;
+  const controlsEnabled = gameplayReady && !controlsFrozen && !contentModalVisible;
 
+  // ── Dialog queue helpers ──────────────────────────────────────────────────
+  const showDialog = useCallback((text) => {
+    setDialogText(text);
+    setDialogVisible(true);
+    setControlsFrozen(true);
+  }, []);
+
+  const enqueueDialogs = useCallback((texts) => {
+    setDialogQueue(texts);
+  }, []);
+
+  // When queue changes and dialog is not visible, pop next
   useEffect(() => {
-    const currentId = nearbyProject?.id ?? null;
-
-    if (currentId && currentId !== lastPreviewIdRef.current) {
-      const audio = previewAudioRef.current;
-      if (audio) {
-        audio.currentTime = 0;
-        audio.play();
-      }
+    if (!dialogVisible && dialogQueue.length > 0) {
+      const [next, ...rest] = dialogQueue;
+      setDialogQueue(rest);
+      showDialog(next);
     }
- 
-    lastPreviewIdRef.current = currentId;
-  }, [nearbyProject]);
+  }, [dialogVisible, dialogQueue, showDialog]);
 
+  const handleDialogContinue = useCallback(() => {
+    setDialogVisible(false);
+    setControlsFrozen(false);
+    // next item from queue will auto-trigger via the effect above
+  }, []);
+
+  // ── Trigger intro dialogs after scene fades in ────────────────────────────
+  useEffect(() => {
+    if (gameplayReady && !hasPlayerMoved && dialogQueue.length === 0 && !dialogVisible) {
+      enqueueDialogs(INTRO_DIALOG_SEQUENCE);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameplayReady]);
+
+  // ── BGM ───────────────────────────────────────────────────────────────────
   useEffect(() => {
     bgmRef.current = new Audio("/sounds/steampipe.mp3");
     bgmRef.current.loop = true;
     bgmRef.current.volume = 0.3;
 
     return () => {
-      if (bgmFadeIntervalRef.current) {
-        clearInterval(bgmFadeIntervalRef.current);
-      }
+      if (bgmFadeIntervalRef.current) clearInterval(bgmFadeIntervalRef.current);
       bgmRef.current?.pause();
-    };
-  }, []);
-
-  useEffect(() => {
-    previewAudioRef.current = new Audio("/sounds/pop.mp3");
-    previewAudioRef.current.volume = 0.7;
-
-    return () => {
-      previewAudioRef.current?.pause();
     };
   }, []);
 
@@ -632,18 +763,14 @@ export default function App() {
 
     setIsVideoEnding(false);
     introVideoRef.current.currentTime = 0;
-    introVideoRef.current.play().catch(() => {
-      // Autoplay can fail depending on browser policy; keep controls available.
-    });
+    introVideoRef.current.play().catch(() => {});
   }, [showIntroVideo]);
 
   const playBgmWithFadeIn = () => {
     const audio = bgmRef.current;
     if (!audio) return;
 
-    if (bgmFadeIntervalRef.current) {
-      clearInterval(bgmFadeIntervalRef.current);
-    }
+    if (bgmFadeIntervalRef.current) clearInterval(bgmFadeIntervalRef.current);
 
     const targetVolume = 0.3;
     const durationMs = 1200;
@@ -665,17 +792,27 @@ export default function App() {
     }, tickMs);
   };
 
-  useEffect(() => {
-    if (!checkpointEvent) return;
+  // Fade out video audio before it ends
+  const startVideoAudioFadeOut = useCallback(() => {
+    const video = introVideoRef.current;
+    if (!video) return;
 
-    const timeoutId = setTimeout(() => {
-      setCheckpointEvent(null);
-    }, 4500);
+    const fadeDurationMs = 800;
+    const tickMs = 60;
+    const startVolume = video.volume;
+    const steps = Math.max(1, Math.round(fadeDurationMs / tickMs));
+    const volumeStep = startVolume / steps;
 
-    return () => clearTimeout(timeoutId);
-  }, [checkpointEvent]);
+    const interval = setInterval(() => {
+      if (!introVideoRef.current) { clearInterval(interval); return; }
+      const next = Math.max(0, introVideoRef.current.volume - volumeStep);
+      introVideoRef.current.volume = next;
+      if (next <= 0) clearInterval(interval);
+    }, tickMs);
+  }, []);
 
-  const handleCheckpointReached = (checkpoint) => {
+  // ── Checkpoint reached ────────────────────────────────────────────────────
+  const handleCheckpointReached = useCallback((checkpoint) => {
     if (!checkpoint || checkpoint.id !== activeCheckpoint?.id) return;
     if (activatedCheckpointIdsRef.current.has(checkpoint.id)) return;
 
@@ -685,30 +822,31 @@ export default function App() {
 
     activatedCheckpointIdsRef.current.add(checkpoint.id);
 
-    const nextCheckpoint = checkpointSequence[activeCheckpointIndex + 1] ?? null;
+    const nextIndex = activeCheckpointIndex + 1;
+    const isLast = nextIndex >= checkpointSequence.length;
 
     playSound("/sounds/pop.mp3", 0.8);
-    setCompletedCheckpointCount(activeCheckpointIndex + 1);
-    setStoryLog((prev) => [
-      ...prev,
-      `Stop ${checkpoint.step}: ${checkpoint.storyAction} at ${checkpoint.title}. ${checkpoint.storyDetails}`,
-    ]);
-    setCheckpointEvent({
-      id: checkpoint.id,
-      accent: checkpoint.accent,
-      title: `${checkpoint.storyAction} Complete`,
-      summary: checkpoint.storyDetails,
-      nextText: nextCheckpoint
-        ? `Next objective: ${nextCheckpoint.storyAction} at ${nextCheckpoint.title}.`
-        : "Story route complete. Keep cruising and explore the city at your own pace.",
-    });
-    if (!nextCheckpoint) {
-      setGameWon(true);
+    setCompletedCheckpointCount(nextIndex);
+    setActiveCheckpointIndex(nextIndex);
+
+    if (isLast) setGameWon(true);
+
+    // Show content modal for this checkpoint
+    setContentModalCheckpoint(checkpoint);
+    setContentModalVisible(true);
+  }, [activeCheckpoint, activeCheckpointIndex]);
+
+  const handleContentModalContinue = useCallback(() => {
+    setContentModalVisible(false);
+    const idx = checkpointSequence.findIndex(c => c.id === contentModalCheckpoint?.id);
+
+    // Queue post-checkpoint narrative dialog if one exists
+    const narrativeText = POST_CHECKPOINT_DIALOGS[idx];
+    if (narrativeText) {
+      enqueueDialogs([narrativeText]);
     }
-    setActiveCheckpointIndex((prev) =>
-      Math.min(prev + 1, checkpointSequence.length)
-    );
-  };
+    setContentModalCheckpoint(null);
+  }, [contentModalCheckpoint, enqueueDialogs]);
 
   return (
     <div style={{ width: "100vw", height: "100vh", position: "relative" }}>
@@ -718,84 +856,32 @@ export default function App() {
           setNearbyProject={setNearbyProject}
           activeCheckpoint={activeCheckpoint}
           onCheckpointReached={handleCheckpointReached}
-          controlsEnabled={gameplayReady}
+          controlsEnabled={controlsEnabled}
           activationEnabled={checkpointActivationEnabled}
           onPlayerMoved={() => setHasPlayerMoved(true)}
+          activeCheckpointIndex={activeCheckpointIndex}
         />
       </Canvas>
 
-      {!showSplash && !showIntroVideo && (
-        <div
-          style={{
-            position: "absolute",
-            top: "18px",
-            left: "18px",
-            zIndex: 25,
-            width: "min(420px, calc(100vw - 36px))",
-            background: "rgba(15,18,24,0.86)",
-            border: "1px solid rgba(255,255,255,0.14)",
-            borderRadius: "16px",
-            color: "white",
-            padding: "16px 18px",
-            backdropFilter: "blur(8px)",
-            fontFamily: "Arial, sans-serif",
-          }}
-        >
-          <div style={{ fontSize: "0.78rem", letterSpacing: "0.08em", opacity: 0.78 }}>
-            DELIVERY STORY ROUTE
-          </div>
-          <h3 style={{ margin: "8px 0 8px", fontSize: "1.12rem" }}>
-            {activeCheckpoint
-              ? `Checkpoint ${activeCheckpoint.step}/${checkpointSequence.length}: ${activeCheckpoint.storyAction}`
-              : "Story Route Complete"}
-          </h3>
-          <p style={{ margin: 0, color: "#d8deea", lineHeight: 1.55 }}>
-            {activeCheckpoint
-              ? activeCheckpoint.shortObjective
-              : "All deliveries are done. Stay in free-drive mode and keep exploring."}
-          </p>
-          <p
-            style={{
-              margin: "10px 0 0",
-              color: "#aab5cb",
-              fontSize: "0.88rem",
-              lineHeight: 1.45,
-            }}
-          >
-            Checkpoints auto-activate when your robot enters the active zone.
-          </p>
-          <div style={{ marginTop: "12px", fontSize: "0.86rem", color: "#c4cee1" }}>
-            Progress: {completedCheckpointCount}/{checkpointSequence.length}
-          </div>
+      {/* ── Animal Crossing dialog box ── */}
+      <DialogBox
+        text={dialogText}
+        visible={dialogVisible && gameplayReady}
+        onContinue={handleDialogContinue}
+      />
 
-          {!hasPlayerMoved && gameplayReady && (
-            <div
-              style={{
-                marginTop: "10px",
-                color: "#ffe8b3",
-                fontSize: "0.84rem",
-                lineHeight: 1.4,
-              }}
-            >
-              Move the robot to begin checkpoint tracking.
-            </div>
-          )}
+      {/* ── Checkpoint content modal ── */}
+      <CheckpointModal
+        checkpoint={contentModalCheckpoint}
+        visible={contentModalVisible}
+        onContinue={handleContentModalContinue}
+      />
 
-          <div
-            style={{
-              marginTop: "12px",
-              borderTop: "1px solid rgba(255,255,255,0.16)",
-              paddingTop: "10px",
-              color: "#cdd7eb",
-              fontSize: "0.84rem",
-              lineHeight: 1.5,
-            }}
-          >
-            Story Log: {storyLog[Math.max(0, storyLog.length - 1)]}
-          </div>
-        </div>
-      )}
+      {/* ── Route complete modal ── */}
+      <RouteCompleteModal visible={gameWon && !contentModalVisible}
+        onClose={() => setGameWon(false)} />
 
+      {/* ── Splash ── */}
       {showSplash && (
         <div
           style={{
@@ -829,14 +915,6 @@ export default function App() {
               Delivery World
             </h1>
 
-            <p style={{ lineHeight: 1.7, marginBottom: "16px" }}>
-              "Last mile delivery accounts for 13–75% of supply chain cost and 40% of e‑commerce emissions. The initial costs in deploying mobile autonomous robots may be expensive, but these costs are expected to be offset by lower maintenance costs, fuel savings, and potential tax credits or subsidies.
-            </p>
-
-            <p style={{ lineHeight: 1.7, marginBottom: "24px" }}>
-              With these cost saving promises, delivery robot Stella's company has partnered with local restaurants and supermarkets.
-            </p>
-
             <p style={{ lineHeight: 1.7, marginBottom: "24px" }}>
               Move through the city with Stella to experience a day in the life of an autonomous delivery robot and learn about her impact.
             </p>
@@ -864,6 +942,7 @@ export default function App() {
         </div>
       )}
 
+      {/* ── Intro video ── */}
       {showIntroVideo && (
         <div
           style={{
@@ -880,6 +959,14 @@ export default function App() {
             src="/videos/Untitled.mp4"
             autoPlay
             playsInline
+            onTimeUpdate={() => {
+              const video = introVideoRef.current;
+              if (!video) return;
+              // Start fading audio 1s before end
+              if (video.duration - video.currentTime < 1.0 && video.volume > 0.01) {
+                startVideoAudioFadeOut();
+              }
+            }}
             onEnded={() => {
               if (isVideoEnding) return;
 
@@ -929,89 +1016,15 @@ export default function App() {
         />
       )}
 
-      {checkpointEvent && (
-        <div
-          style={{
-            position: "absolute",
-            display: "flex",
-            justifyContent: "flex-end",
-            alignItems: "flex-start",
-            top: "18px",
-            right: "18px",
-            zIndex: 40,
-            width: "min(420px, calc(100vw - 36px))",
-            fontFamily: "Arial, sans-serif",
-          }}
-        >
-          <div
-            style={{
-              width: "100%",
-              background: "rgba(14,18,24,0.94)",
-              border: `1px solid ${checkpointEvent.accent || "#3b82f6"}`,
-              borderRadius: "16px",
-              boxShadow: "0 24px 50px rgba(0,0,0,0.38)",
-              padding: "16px 18px",
-              color: "white",
-            }}
-          >
-            <div
-              style={{
-                display: "inline-block",
-                padding: "6px 10px",
-                borderRadius: "999px",
-                background: checkpointEvent.accent || "#3b82f6",
-                color: "white",
-                fontSize: "0.72rem",
-                fontWeight: 700,
-                letterSpacing: "0.05em",
-                marginBottom: "10px",
-              }}
-            >
-              CHECKPOINT UPDATE
-            </div>
-
-            <h3 style={{ margin: "0 0 8px", fontSize: "1.05rem" }}>
-              {checkpointEvent.title}
-            </h3>
-
-            <p style={{ margin: "0 0 8px", color: "#d9e1f2", lineHeight: 1.55 }}>
-              {checkpointEvent.summary}
-            </p>
-
-            <p style={{ margin: 0, color: "#aebdd8", fontSize: "0.92rem" }}>
-              {checkpointEvent.nextText}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {gameWon && (
-        <div
-          style={{
-            position: "absolute",
-            top: "20px",
-            left: "50%",
-            transform: "translateX(-50%)",
-            zIndex: 45,
-            padding: "10px 18px",
-            borderRadius: "999px",
-            background: "rgba(126,198,1,0.92)",
-            color: "#102200",
-            fontWeight: 700,
-            letterSpacing: "0.04em",
-            fontFamily: "Arial, sans-serif",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-          }}
-        >
-          ROUTE COMPLETE - YOU WIN
-        </div>
-      )}
-
       <style>
         {`
           @keyframes sceneFadeIn {
             from { opacity: 1; }
             to { opacity: 0; }
+          }
+          @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0; }
           }
         `}
       </style>

@@ -14,7 +14,7 @@ export default function DeliveryRobot({ robotRef }) {
   }, [scene]);
 
   return (
-    <group ref={robotRef} position={[-26, 0.5, 0]}>
+    <group ref={robotRef} position={[-26, 0.5, 0]} rotation={[0, -Math.PI/2, 0]}>
       <primitive object={scene} scale={0.3} rotation={[0, Math.PI, 0]} />
     </group>
   );
