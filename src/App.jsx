@@ -30,7 +30,7 @@ const checkpointSequence = [
   {
     id: "supermarket",
     step: 1,
-    title: "Supermarket",
+    title: "Stinger Supermarket",
     subtitle: "Morning Pickup",
     position: [-18, 0, 1],
     accent: "#7ec601",
@@ -38,7 +38,7 @@ const checkpointSequence = [
     shortObjective: "Load fresh grocery crates from the supermarket dock.",
     storyDetails:
       "The day starts gently at the supermarket. Staff hand over fresh produce and pantry boxes for the city route.",
-  },
+  }, 
   {
     id: "office",
     step: 2,
@@ -54,7 +54,7 @@ const checkpointSequence = [
   {
     id: "burger",
     step: 3,
-    title: "Burger",
+    title: "Burdell's Burgers",
     subtitle: "Kitchen Restock",
     position: [0, 0, 1],
     accent: "#60a5fa",
@@ -830,13 +830,15 @@ export default function App() {
             </h1>
 
             <p style={{ lineHeight: 1.7, marginBottom: "16px" }}>
-              Explore a small interactive city using a delivery robot. Move through
-              streets, discover locations, and interact with projects as if navigating
-              a real environment.
+              "Last mile delivery accounts for 13–75% of supply chain cost and 40% of e‑commerce emissions. The initial costs in deploying mobile autonomous robots may be expensive, but these costs are expected to be offset by lower maintenance costs, fuel savings, and potential tax credits or subsidies.
             </p>
 
             <p style={{ lineHeight: 1.7, marginBottom: "24px" }}>
-              Follow the highlighted delivery route across city buildings and enjoy a chill story-driven drive.
+              With these cost saving promises, delivery robot Stella's company has partnered with local restaurants and supermarkets.
+            </p>
+
+            <p style={{ lineHeight: 1.7, marginBottom: "24px" }}>
+              Move through the city with Stella to experience a day in the life of an autonomous delivery robot and learn about her impact.
             </p>
 
             <button
